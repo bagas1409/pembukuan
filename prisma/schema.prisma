@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @db.Text
+  namaUsaha String   @map("nama_usaha")
+  email     String   @unique @db.Text
+  password  String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pemasukan   Pemasukan[]
+  pengeluaran Pengeluaran[]
+  persediaan  PembelianPersediaan[]
+  utangPiutang UtangPiutang[]
+  asetTetap   AsetTetap[]
+
+  @@map("users")
+}
+
+model Pemasukan {
+  id               String    @id @db.Text
+  userId           String    @map("user_id") @db.Text
+  kategori         String    @db.Text
+  tanggal          DateTime  @db.Timestamptz(6)
+  nomorInvoice     String    @map("nomor_invoice") @db.Text
+  namaCustomer     String    @map("nama_customer") @db.Text
+  nominalTotal     Decimal   @map("nominal_total") @db.Decimal
+  nominalDiskon    Decimal   @default(0) @map("nominal_diskon") @db.Decimal
+  metodePembayaran String    @map("metode_pembayaran") @db.Text
+  tanggalJatuhTempo DateTime? @map("tanggal_jatuh_tempo") @db.Timestamptz(6)
+  keterangan       String    @default("") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "pemasukan_user_id_idx")
+  @@index([userId, nomorInvoice], map: "pemasukan_user_invoice_idx")
+  @@map("pemasukan")
+}
+
+model Pengeluaran {
+  id               String    @id @db.Text
+  userId           String    @map("user_id") @db.Text
+  kategori         String    @db.Text
+  subKategori      String    @map("sub_kategori") @db.Text
+  tanggal          DateTime  @db.Timestamptz(6)
+  namaVendorPenerima String  @map("nama_vendor_penerima") @db.Text
+  nominal          Decimal   @db.Decimal
+  metodePembayaran String    @map("metode_pembayaran") @db.Text
+  tanggalJatuhTempo DateTime? @map("tanggal_jatuh_tempo") @db.Timestamptz(6)
+  referensiUtangId String?   @map("referensi_utang_id") @db.Text
+  keterangan       String    @default("") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asetTetap AsetTetap[]
+
+  @@index([userId], map: "pengeluaran_user_id_idx")
+  @@map("pengeluaran")
+}
+
+model PembelianPersediaan {
+  id               String   @id @db.Text
+  userId           String   @map("user_id") @db.Text
+  kategori         String   @db.Text
+  tanggal          DateTime @db.Timestamptz(6)
+  supplier         String   @db.Text
+  namaBarang       String   @map("nama_barang") @db.Text
+  jumlah           Decimal  @db.Decimal
+  nominal          Decimal  @db.Decimal
+  metodePembayaran String   @map("metode_pembayaran") @db.Text
+  keterangan       String   @default("") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "pembelian_persediaan_user_id_idx")
+  @@map("pembelian_persediaan")
+}
+
+model UtangPiutang {
+  id              String   @id @db.Text
+  userId          String   @map("user_id") @db.Text
+  tipe            String   @db.Text
+  referensiId     String   @map("referensi_id") @db.Text
+  namaPihak       String   @map("nama_pihak") @db.Text
+  nominalAwal     Decimal  @map("nominal_awal") @db.Decimal
+  nominalSisa     Decimal  @map("nominal_sisa") @db.Decimal
+  tanggalJatuhTempo DateTime @map("tanggal_jatuh_tempo") @db.Timestamptz(6)
+  status          String   @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "utang_piutang_user_id_idx")
+  @@index([userId, tipe, status], map: "utang_piutang_user_tipe_status_idx")
+  @@index([userId, tipe, referensiId], map: "utang_piutang_referensi_idx")
+  @@map("utang_piutang")
+}
+
+model AsetTetap {
+  id           String   @id @db.Text
+  userId       String   @map("user_id") @db.Text
+  pengeluaranId String  @map("pengeluaran_id") @db.Text
+  namaAset     String   @map("nama_aset") @db.Text
+  kategoriAset String   @map("kategori_aset") @db.Text
+  hargaBeli    Decimal  @map("harga_beli") @db.Decimal
+  umurManfaat  Int      @map("umur_manfaat")
+  nilaiResidu  Decimal  @map("nilai_residu") @db.Decimal
+  tanggalBeli  DateTime @map("tanggal_beli") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pengeluaran Pengeluaran @relation(fields: [pengeluaranId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "aset_tetap_user_id_idx")
+  @@index([pengeluaranId], map: "aset_tetap_pengeluaran_id_idx")
+  @@map("aset_tetap")
+}

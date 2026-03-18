@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bagas
+      POSTGRES_DB: akutansi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d akutansi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: .
+    container_name: backend-app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      # IMPORTANT: inside Docker, use the service name `postgres` (not localhost)
+      DATABASE_URL: postgresql://postgres:bagas@postgres:5432/akutansi
+
+  migrate:
+    build: .
+    container_name: backend-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:bagas@postgres:5432/akutansi
+    command: ["npm", "run", "db:init"]
+    restart: "no"
+
+volumes:
+  postgres_data:
