@@ -127,11 +127,12 @@ export async function streamLaporanPdf({ userId, year }, res) {
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   // Set metadata title, and remove auto "CreationDate/ModDate" if present
   // (sebagian PDF viewer menampilkan ini sebagai "Dibuat: ...").
-  doc.info = doc.info || {};
-  doc.info.Title = `Laporan Akuntansi ${y}`;
   try {
-    delete doc.info.CreationDate;
-    delete doc.info.ModDate;
+    if (doc.info) {
+      doc.info.Title = `Laporan Akuntansi ${y}`;
+      delete doc.info.CreationDate;
+      delete doc.info.ModDate;
+    }
   } catch {
     // ignore
   }
