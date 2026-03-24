@@ -132,7 +132,6 @@ export async function streamLaporanPdf({ userId, year }, res) {
       new Date(`${y}-12-31T00:00:00.000Z`)
     )})`
   );
-  doc.text(`Dibuat: ${formatDateId(new Date())}`);
   doc.moveDown(0.2);
 
   drawSectionTitle(doc, "Ringkasan Keuangan");
