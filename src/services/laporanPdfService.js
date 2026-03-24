@@ -120,8 +120,21 @@ export async function streamLaporanPdf({ userId, year }, res) {
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  // Avoid any intermediary/client caching an older PDF build.
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
 
-  const doc = new PDFDocument({ size: "A4", margin: 50, info: { Title: `Laporan Akuntansi ${y}` } });
+  const doc = new PDFDocument({ size: "A4", margin: 50 });
+  // Set metadata title, and remove auto "CreationDate/ModDate" if present
+  // (sebagian PDF viewer menampilkan ini sebagai "Dibuat: ...").
+  doc.info = doc.info || {};
+  doc.info.Title = `Laporan Akuntansi ${y}`;
+  try {
+    delete doc.info.CreationDate;
+    delete doc.info.ModDate;
+  } catch {
+    // ignore
+  }
   doc.pipe(res);
 
   // Header (judul "Laporan Akuntansi" dihapus sesuai request)
