@@ -167,6 +167,7 @@ async function neraca(userId, query) {
 async function dashboard(userId, query) {
   const pool = getPool();
   const year = query?.year ? Number(query.year) : null;
+  const range = parseRange(query || {});
 
   const pemasukanWhere = ["user_id=$1"];
   const pengeluaranWhere = ["user_id=$1"];
@@ -176,6 +177,17 @@ async function dashboard(userId, query) {
     params.push(year);
     pemasukanWhere.push(`EXTRACT(YEAR FROM tanggal) = $${params.length}`);
     pengeluaranWhere.push(`EXTRACT(YEAR FROM tanggal) = $${params.length}`);
+  }
+
+  if (range?.start) {
+    params.push(range.start);
+    pemasukanWhere.push(`tanggal >= $${params.length}`);
+    pengeluaranWhere.push(`tanggal >= $${params.length}`);
+  }
+  if (range?.end) {
+    params.push(range.end);
+    pemasukanWhere.push(`tanggal <= $${params.length}`);
+    pengeluaranWhere.push(`tanggal <= $${params.length}`);
   }
 
   // Pemasukan = all from pemasukan table

@@ -1,6 +1,7 @@
 import { getPool } from "../config/db.js";
 import { dashboard as dashboardSvc, labaRugi as labaRugiSvc, neraca as neracaSvc } from "./laporanService.js";
 import { rowsRingkasan, rowsLabaRugi, rowsNeraca, safeFilePart } from "./laporanExportRows.js";
+import { resolveLaporanPeriod } from "./laporanPeriod.js";
 
 function csvEscape(v) {
   const s = String(v ?? "");
@@ -27,15 +28,14 @@ function addSection(lines, sectionName, rows) {
   }
 }
 
-export async function streamLaporanCsv({ userId, year }, res) {
-  const y = year && Number.isFinite(year) ? year : new Date().getFullYear();
-  if (!Number.isInteger(y) || y < 2000 || y > 2100) {
-    res.status(400).json({ message: "year tidak valid" });
+export async function streamLaporanCsv({ userId, year, month }, res) {
+  const period = resolveLaporanPeriod({ year, month });
+  if (period.error) {
+    res.status(400).json({ message: period.error });
     return;
   }
 
-  const start = `${y}-01-01`;
-  const end = `${y}-12-31`;
+  const { y, start, end, periodTag } = period;
 
   const pool = getPool();
   const userRes = await pool.query(`SELECT nama_usaha as "namaUsaha" FROM users WHERE id=$1`, [userId]);
@@ -48,7 +48,7 @@ export async function streamLaporanCsv({ userId, year }, res) {
   const [lr, nr, db] = await Promise.all([
     labaRugiSvc(userId, { start, end }),
     neracaSvc(userId, { start, end }),
-    dashboardSvc(userId, { year: y })
+    dashboardSvc(userId, { start, end })
   ]);
 
   const lines = [];
@@ -57,7 +57,7 @@ export async function streamLaporanCsv({ userId, year }, res) {
   addSection(lines, "Laba Rugi", rowsLabaRugi(lr));
   addSection(lines, "Neraca", rowsNeraca(nr));
 
-  const filename = `Laporan_Akutansi_${safeFilePart(user.namaUsaha)}_${y}.csv`;
+  const filename = `Laporan_Akutansi_${safeFilePart(user.namaUsaha)}_${periodTag}.csv`;
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
 

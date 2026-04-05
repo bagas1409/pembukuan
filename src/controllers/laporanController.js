@@ -21,17 +21,20 @@ const dashboard = asyncHandler(async (req, res) => {
 
 const pdf = asyncHandler(async (req, res) => {
   const year = req.query?.year ? Number(req.query.year) : null;
-  await streamLaporanPdf({ userId: req.user.id, year }, res);
+  const month = req.query?.month != null ? Number(req.query.month) : null;
+  await streamLaporanPdf({ userId: req.user.id, year, month }, res);
 });
 
 const xlsx = asyncHandler(async (req, res) => {
   const year = req.query?.year ? Number(req.query.year) : null;
-  await streamLaporanXlsx({ userId: req.user.id, year }, res);
+  const month = req.query?.month != null ? Number(req.query.month) : null;
+  await streamLaporanXlsx({ userId: req.user.id, year, month }, res);
 });
 
 const csv = asyncHandler(async (req, res) => {
   const year = req.query?.year ? Number(req.query.year) : null;
-  await streamLaporanCsv({ userId: req.user.id, year }, res);
+  const month = req.query?.month != null ? Number(req.query.month) : null;
+  await streamLaporanCsv({ userId: req.user.id, year, month }, res);
 });
 
 export { labaRugi, neraca, dashboard, pdf, xlsx, csv };

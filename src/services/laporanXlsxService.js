@@ -11,6 +11,7 @@ import {
   rowsNeraca,
   safeFilePart,
 } from "./laporanExportRows.js";
+import { resolveLaporanPeriod } from "./laporanPeriod.js";
 
 const COLORS = {
   black: "FF000000",
@@ -355,15 +356,14 @@ function addSingleReportSheet(
   return ws;
 }
 
-export async function streamLaporanXlsx({ userId, year }, res) {
-  const y = year && Number.isFinite(year) ? year : new Date().getFullYear();
-  if (!Number.isInteger(y) || y < 2000 || y > 2100) {
-    res.status(400).json({ message: "year tidak valid" });
+export async function streamLaporanXlsx({ userId, year, month }, res) {
+  const period = resolveLaporanPeriod({ year, month });
+  if (period.error) {
+    res.status(400).json({ message: period.error });
     return;
   }
 
-  const start = `${y}-01-01`;
-  const end = `${y}-12-31`;
+  const { y, start, end, startDate, endDate, periodTitle, periodTag } = period;
 
   const pool = getPool();
   const userRes = await pool.query(
@@ -379,7 +379,7 @@ export async function streamLaporanXlsx({ userId, year }, res) {
   const [lr, nr, db] = await Promise.all([
     labaRugiSvc(userId, { start, end }),
     neracaSvc(userId, { start, end }),
-    dashboardSvc(userId, { year: y }),
+    dashboardSvc(userId, { start, end }),
   ]);
 
   const workbook = new ExcelJS.Workbook();
@@ -398,6 +398,9 @@ export async function streamLaporanXlsx({ userId, year }, res) {
     }).format(new Date()),
   };
 
+  const fmt = new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  meta.periodeText = `${periodTitle} (${fmt.format(startDate)} – ${fmt.format(endDate)})`;
+
   addSingleReportSheet(workbook, {
     meta,
     ringkasanRows: rowsRingkasan(db),
@@ -411,7 +414,7 @@ export async function streamLaporanXlsx({ userId, year }, res) {
     neracaRows: rowsNeraca(nr),
   });
 
-  const filename = `Laporan_Akutansi_${safeFilePart(user.namaUsaha)}_${y}.xlsx`;
+  const filename = `Laporan_Akutansi_${safeFilePart(user.namaUsaha)}_${periodTag}.xlsx`;
 
   res.setHeader(
     "Content-Type",

@@ -2,10 +2,7 @@ import PDFDocument from "pdfkit";
 import { getPool } from "../config/db.js";
 import { dashboard as dashboardSvc, labaRugi as labaRugiSvc, neraca as neracaSvc } from "./laporanService.js";
 import { rowsRingkasan, rowsLabaRugi, rowsNeraca, formatRp, formatRpMinus, safeFilePart } from "./laporanExportRows.js";
-
-function formatDateId(d) {
-  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(d);
-}
+import { resolveLaporanPeriod } from "./laporanPeriod.js";
 
 function drawSectionTitle(doc, title) {
   doc.moveDown(0.9);
@@ -42,12 +39,8 @@ function drawTable(doc, rows) {
   // Header row
   ensureSpace(rowH * 2);
   const y0 = doc.y;
-  doc
-    .rect(left, y0, col1W, rowH)
-    .fillAndStroke("#000", "#000");
-  doc
-    .rect(left + col1W, y0, col2W, rowH)
-    .fillAndStroke("#000", "#000");
+  doc.rect(left, y0, col1W, rowH).fillAndStroke("#000", "#000");
+  doc.rect(left + col1W, y0, col2W, rowH).fillAndStroke("#000", "#000");
   doc.fillColor("#fff").font("Helvetica-Bold").fontSize(10);
   doc.text("Komponen", left + 6, y0 + 5, { width: col1W - 12 });
   doc.text("Nilai", left + col1W + 6, y0 + 5, { width: col2W - 12, align: "right" });
@@ -92,15 +85,14 @@ function drawTable(doc, rows) {
   doc.moveDown(0.8);
 }
 
-export async function streamLaporanPdf({ userId, year }, res) {
-  const y = year && Number.isFinite(year) ? year : new Date().getFullYear();
-  if (!Number.isInteger(y) || y < 2000 || y > 2100) {
-    res.status(400).json({ message: "year tidak valid" });
+export async function streamLaporanPdf({ userId, year, month }, res) {
+  const period = resolveLaporanPeriod({ year, month });
+  if (period.error) {
+    res.status(400).json({ message: period.error });
     return;
   }
 
-  const start = `${y}-01-01`;
-  const end = `${y}-12-31`;
+  const { y, start, end, periodeLine, periodTag } = period;
 
   const pool = getPool();
   const userRes = await pool.query(`SELECT nama_usaha as "namaUsaha", email FROM users WHERE id=$1`, [userId]);
@@ -113,10 +105,10 @@ export async function streamLaporanPdf({ userId, year }, res) {
   const [lr, nr, db] = await Promise.all([
     labaRugiSvc(userId, { start, end }),
     neracaSvc(userId, { start, end }),
-    dashboardSvc(userId, { year: y })
+    dashboardSvc(userId, { start, end }),
   ]);
 
-  const filename = `Laporan_Akutansi_${safeFilePart(user.namaUsaha)}_${y}.pdf`;
+  const filename = `Laporan_Akutansi_${safeFilePart(user.namaUsaha)}_${periodTag}.pdf`;
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -138,11 +130,7 @@ export async function streamLaporanPdf({ userId, year }, res) {
   // Header (judul "Laporan Akuntansi" dihapus sesuai request)
   doc.font("Helvetica").fontSize(11).fillColor("#000").text(`Nama Usaha: ${user.namaUsaha}`);
   doc.text(`Email: ${user.email}`);
-  doc.text(
-    `Periode: ${y} (${formatDateId(new Date(`${y}-01-01T00:00:00.000Z`))} – ${formatDateId(
-      new Date(`${y}-12-31T00:00:00.000Z`)
-    )})`
-  );
+  doc.text(periodeLine);
   doc.moveDown(0.2);
 
   drawSectionTitle(doc, "Ringkasan Keuangan");
@@ -158,3 +146,4 @@ export async function streamLaporanPdf({ userId, year }, res) {
 
   doc.end();
 }
+
